@@ -1,0 +1,43 @@
+# The directory Mix will write compiled artifacts to.
+/_build/
+
+# If you run "mix test --cover", coverage assets end up here.
+/cover/
+
+# The directory Mix downloads your dependencies sources to.
+/deps/
+
+# Where third-party dependencies like ExDoc output generated docs.
+/doc/
+
+# Temporary files, for example, from tests.
+/tmp/
+
+# If the VM crashes, it generates a dump, let's ignore it too.
+erl_crash.dump
+
+# Also ignore archive artifacts (built via "mix archive.build").
+*.ez
+
+# Ignore package tarball (built via "mix hex.build").
+reverie-*.tar
+
+# Raw fetched corpus data (large, not committed)
+/data/*/raw/
+
+# SQLite corpus databases (built artifacts, versioned via S3)
+/data/*/corpus.db
+/data/*/corpus.db-shm
+/data/*/corpus.db-wal
+
+# Generated dataset working files (frozen snapshots go to S3)
+/data/*/generated/
+/data/*/datasets/
+
+# Adapter artifacts (go to S3)
+/data/*/artifacts/
+
+# Python virtualenvs (managed by Pythonx/uv)
+/.venv/
+/__pycache__/
+.env
