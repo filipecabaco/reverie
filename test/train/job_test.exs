@@ -49,6 +49,45 @@ defmodule Train.JobTest do
     end
   end
 
+  describe "Job.run_many/2" do
+    @tag :tmp_dir
+    test "returns one result per config", %{tmp_dir: dir} do
+      configs = for _ <- 1..3, do: invalid_config(dir)
+      results = Job.run_many(configs, runner: :local)
+      assert length(results) == 3
+    end
+
+    @tag :tmp_dir
+    test "each result matches the corresponding run/2 call", %{tmp_dir: dir} do
+      configs = [invalid_config(dir), valid_config(dir)]
+      results = Job.run_many(configs, runner: :local)
+      expected = Enum.map(configs, &Job.run(&1, runner: :local))
+      assert results == expected
+    end
+
+    @tag :tmp_dir
+    test "one failing job does not affect others", %{tmp_dir: dir} do
+      configs = [invalid_config(dir), invalid_config(dir), invalid_config(dir)]
+      results = Job.run_many(configs, runner: :local)
+      assert Enum.all?(results, &match?({:error, _}, &1))
+    end
+
+    @tag :tmp_dir
+    test "concurrency: 1 produces the same results as the default", %{tmp_dir: dir} do
+      configs = for _ <- 1..3, do: invalid_config(dir)
+
+      assert Job.run_many(configs, runner: :local) ==
+               Job.run_many(configs, runner: :local, concurrency: 1)
+    end
+
+    @tag :tmp_dir
+    test "concurrency: N accepts values greater than 1", %{tmp_dir: dir} do
+      configs = for _ <- 1..4, do: invalid_config(dir)
+      results = Job.run_many(configs, runner: :local, concurrency: 4)
+      assert length(results) == 4
+    end
+  end
+
   describe "Config + Snapshot integration" do
     @tag :tmp_dir
     test "a frozen snapshot satisfies verify/1 used by Job", %{tmp_dir: dir} do
@@ -69,6 +108,15 @@ defmodule Train.JobTest do
       output_path: Path.join(dir, "adapter"),
       seed: 42,
       smoke: true
+    }
+  end
+
+  defp invalid_config(dir) do
+    %Config{
+      base_model: "",
+      dataset_path: dir,
+      output_path: Path.join(dir, "out"),
+      seed: 42
     }
   end
 

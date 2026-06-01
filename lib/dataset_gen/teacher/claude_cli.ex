@@ -112,7 +112,7 @@ defmodule DatasetGen.Teacher.ClaudeCLI do
   defp call_cli(prompt) do
     env = cli_env() ++ [{"REVERIE_PROMPT", prompt}]
 
-    case System.cmd("sh", ["-c", "claude -p \"$REVERIE_PROMPT\" < /dev/null"],
+    case System.cmd("sh", ["-c", "claude -p \"$REVERIE_PROMPT\" </dev/null 2>/dev/null"],
            env: env,
            stderr_to_stdout: false
          ) do

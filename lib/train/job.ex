@@ -30,6 +30,32 @@ defmodule Train.Job do
         }
 
   @doc """
+  Run multiple training jobs concurrently.
+
+  Options:
+    - `:concurrency` — max parallel jobs. Defaults to
+      `Application.get_env(:reverie, :train_concurrency, 1)`.
+    - All options from `run/2` are forwarded to each job.
+  """
+  @spec run_many([Config.t()], keyword()) :: [{:ok, result()} | {:error, term()}]
+  def run_many(configs, opts \\ []) when is_list(configs) do
+    concurrency =
+      Keyword.get(opts, :concurrency, Application.get_env(:reverie, :train_concurrency, 1))
+
+    Reverie.TaskSupervisor
+    |> Task.Supervisor.async_stream_nolink(
+      configs,
+      fn config -> run(config, opts) end,
+      max_concurrency: concurrency,
+      timeout: :infinity
+    )
+    |> Enum.map(fn
+      {:ok, result} -> result
+      {:exit, reason} -> {:error, {:task_exit, reason}}
+    end)
+  end
+
+  @doc """
   Run a training job.
 
   Options:

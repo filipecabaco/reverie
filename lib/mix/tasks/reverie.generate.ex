@@ -58,7 +58,13 @@ defmodule Mix.Tasks.Reverie.Generate do
     count = opts[:count]
     data_dir = opts[:data_dir]
     out = opts[:out] || Path.join([data_dir, to_string(domain), "generated", "candidates.jsonl"])
-    sandbox_mod = if opts[:no_sandbox], do: PassthroughSandbox, else: DatasetGen.Sandbox
+    no_sandbox = opts[:no_sandbox]
+    sandbox_mod = if no_sandbox, do: PassthroughSandbox, else: DatasetGen.Sandbox
+
+    # When skipping the sandbox, PassthroughSandbox returns instantly so there's
+    # no point throttling with a pool — set slots = concurrency so nothing blocks.
+    concurrency = opts[:concurrency]
+    sandbox_slots = if no_sandbox, do: concurrency, else: opts[:sandbox_slots]
 
     File.mkdir_p!(Path.dirname(out))
 
@@ -67,8 +73,8 @@ defmodule Mix.Tasks.Reverie.Generate do
       teacher: teacher,
       target_count: count,
       out_path: out,
-      generation_concurrency: opts[:concurrency],
-      sandbox_slots: opts[:sandbox_slots],
+      generation_concurrency: concurrency,
+      sandbox_slots: sandbox_slots,
       brief_policy: :verified_only,
       max_repairs: 1
     }

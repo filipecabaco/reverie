@@ -53,11 +53,22 @@ defmodule Mix.Tasks.Reverie.Investigate do
 
     {:ok, conn} = Corpus.Store.open(domain, data_dir)
 
-    results =
-      Enum.map(1..loops, fn i ->
-        if loops > 1, do: Mix.shell().info("\n[#{i}/#{loops}]")
+    # Fetch all topics in one shot before the loop so we get a diverse list
+    # rather than the same "most important" topic repeated every time.
+    topics =
+      if fixed_topic do
+        List.duplicate(fixed_topic, loops)
+      else
+        fetched = Mix.Tasks.Reverie.Helpers.suggest_topics(domain, backend, loops)
+        Mix.shell().info("🤖 Topics planned: #{Enum.join(fetched, ", ")}\n")
+        fetched
+      end
 
-        topic = fixed_topic || Mix.Tasks.Reverie.Helpers.suggest_topic(domain, backend)
+    results =
+      topics
+      |> Enum.with_index(1)
+      |> Enum.map(fn {topic, i} ->
+        if loops > 1, do: Mix.shell().info("[#{i}/#{loops}]")
         Mix.shell().info("🔍 #{topic}")
 
         result =

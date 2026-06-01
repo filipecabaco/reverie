@@ -26,13 +26,18 @@ defmodule Train.Bakeoff do
   Run the benchmark for every candidate in `candidates` and return a report.
 
   Options:
-    - `:domain`   — benchmark domain (default `:elixir`)
+    - `:domain`        — benchmark domain (default `:elixir`)
     - `:only_eligible` — skip ineligible candidates (default `true`)
+    - `:concurrency`   — max candidates evaluated in parallel. Defaults to
+      `Application.get_env(:reverie, :bakeoff_concurrency, 1)`.
   """
   @spec run([ModelCandidate.t()], responder_factory(), keyword()) :: Report.t()
   def run(candidates, responder_factory, opts \\ []) do
     domain = Keyword.get(opts, :domain, :elixir)
     only_eligible = Keyword.get(opts, :only_eligible, true)
+
+    concurrency =
+      Keyword.get(opts, :concurrency, Application.get_env(:reverie, :bakeoff_concurrency, 1))
 
     to_evaluate =
       if only_eligible,
@@ -40,22 +45,32 @@ defmodule Train.Bakeoff do
         else: candidates
 
     results =
-      Enum.map(to_evaluate, fn candidate ->
-        :telemetry.execute([:reverie, :bakeoff, :candidate_start], %{}, %{
-          candidate: candidate.id,
-          domain: domain
-        })
+      Reverie.TaskSupervisor
+      |> Task.Supervisor.async_stream_nolink(
+        to_evaluate,
+        fn candidate ->
+          :telemetry.execute([:reverie, :bakeoff, :candidate_start], %{}, %{
+            candidate: candidate.id,
+            domain: domain
+          })
 
-        responder = responder_factory.(candidate)
-        benchmark_report = Benchmark.run(domain, responder)
+          responder = responder_factory.(candidate)
+          benchmark_report = Benchmark.run(domain, responder)
 
-        :telemetry.execute([:reverie, :bakeoff, :candidate_done], %{}, %{
-          candidate: candidate.id,
-          compile_rate: benchmark_report.compile_rate,
-          test_pass_rate: benchmark_report.test_pass_rate
-        })
+          :telemetry.execute([:reverie, :bakeoff, :candidate_done], %{}, %{
+            candidate: candidate.id,
+            compile_rate: benchmark_report.compile_rate,
+            test_pass_rate: benchmark_report.test_pass_rate
+          })
 
-        {candidate, benchmark_report}
+          {candidate, benchmark_report}
+        end,
+        max_concurrency: concurrency,
+        timeout: :infinity
+      )
+      |> Enum.map(fn
+        {:ok, result} -> result
+        {:exit, reason} -> raise "bakeoff candidate failed: #{inspect(reason)}"
       end)
 
     Report.build(domain, results)

@@ -42,51 +42,65 @@ defmodule Mix.Tasks.Reverie.Helpers do
   end
 
   @doc """
-  Ask the teacher to suggest a topic for a domain.
-  Uses the Claude CLI or API depending on the backend.
+  Ask the teacher for a list of `count` diverse topics for a domain.
+  Returns a list of topic strings, shuffled so repeated calls get different orders.
   """
-  def suggest_topic(domain, backend) do
-    prompt =
-      "What is the single most important practical topic a developer needs to understand " <>
-        "when working with #{domain}? Reply with the topic name only, 2-6 words, no punctuation."
+  def suggest_topics(domain, backend, count \\ 1) do
+    prompt = """
+    List #{max(count, 10)} specific, practical topics a developer needs to understand \
+    when working with #{domain}.
 
-    case backend do
-      "cli" -> suggest_via_cli(prompt, domain)
-      _ -> suggest_via_api(prompt)
-    end
+    Requirements:
+    - Each topic on its own line, starting with "- "
+    - 2-6 words per topic, no punctuation at the end
+    - Cover a diverse range: core concepts, common pitfalls, advanced patterns, \
+    debugging techniques, performance, security
+    - Be specific (e.g. "Row Level Security policies" not just "security")
+    - No duplicates, no introductory text
+    """
+
+    topics =
+      case backend do
+        "cli" -> fetch_topics_cli(prompt)
+        _ -> fetch_topics_api(prompt)
+      end
+
+    topics |> Enum.shuffle() |> Enum.take(count)
   end
 
-  defp suggest_via_cli(prompt, _domain) do
+  # Keep the single-topic helper for backwards compat
+  def suggest_topic(domain, backend) do
+    suggest_topics(domain, backend, 1) |> hd()
+  end
+
+  defp fetch_topics_cli(prompt) do
     case run_claude(prompt) do
       {output, 0} ->
-        topic = output |> String.trim() |> String.split("\n") |> List.last() |> String.trim()
-        Mix.shell().info("🤖 Teacher suggests topic: #{topic}")
-        topic
+        parse_topic_list(output)
 
       {error, code} ->
         Mix.raise("CLI error (exit #{code}): #{error}\nPass --topic to skip this step.")
     end
   end
 
-  defp suggest_via_api(prompt) do
+  defp fetch_topics_api(prompt) do
     api_key = System.get_env("ANTHROPIC_API_KEY", "")
 
     body = %{
       model: "claude-haiku-4-5",
-      max_tokens: 64,
-      system: "Reply with ONLY a short topic name — no explanation, no punctuation.",
+      max_tokens: 512,
+      system:
+        "Reply with a plain bulleted list — one topic per line, starting with '- '. No other text.",
       messages: [%{role: "user", content: prompt}]
     }
 
     case Req.post("https://api.anthropic.com/v1/messages",
            json: body,
            headers: [{"x-api-key", api_key}, {"anthropic-version", "2023-06-01"}],
-           receive_timeout: 15_000
+           receive_timeout: 20_000
          ) do
       {:ok, %{status: 200, body: %{"content" => [%{"text" => text} | _]}}} ->
-        topic = String.trim(text)
-        Mix.shell().info("🤖 Teacher suggests topic: #{topic}")
-        topic
+        parse_topic_list(text)
 
       {:ok, %{status: 400, body: %{"error" => %{"message" => msg}}}} ->
         Mix.raise(
@@ -94,11 +108,21 @@ defmodule Mix.Tasks.Reverie.Helpers do
         )
 
       {:ok, %{status: status, body: body}} ->
-        Mix.raise("API returned #{status}: #{inspect(body)}\nTry --backend cli instead.")
+        Mix.raise("API returned #{status}: #{inspect(body)}")
 
       {:error, reason} ->
-        Mix.raise("Request failed: #{inspect(reason)}\nTry --backend cli instead.")
+        Mix.raise("Request failed: #{inspect(reason)}")
     end
+  end
+
+  defp parse_topic_list(text) do
+    text
+    |> String.split("\n")
+    |> Enum.map(&String.trim/1)
+    |> Enum.filter(&String.starts_with?(&1, "- "))
+    |> Enum.map(&String.trim_leading(&1, "- "))
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
   end
 
   # Unset ANTHROPIC_API_KEY so the claude CLI uses the OAuth session
@@ -115,7 +139,10 @@ defmodule Mix.Tasks.Reverie.Helpers do
   def run_claude(prompt) do
     env = cli_env() ++ [{"REVERIE_PROMPT", prompt}]
 
-    System.cmd("sh", ["-c", "claude -p \"$REVERIE_PROMPT\" < /dev/null"],
+    # </dev/null closes stdin (prevents "no stdin data" warning).
+    # 2>/dev/null suppresses the 3s stdin-wait warning from stderr.
+    # Real errors still surface via non-zero exit codes.
+    System.cmd("sh", ["-c", "claude -p \"$REVERIE_PROMPT\" </dev/null 2>/dev/null"],
       env: env,
       stderr_to_stdout: false
     )

@@ -249,6 +249,21 @@ defmodule Train.BakeoffTest do
       report = Bakeoff.run([ineligible], factory, domain: :elixir)
       assert report.scores == []
     end
+
+    test "concurrency option returns the same candidate set as sequential" do
+      candidates = ModelCandidate.shortlist()
+      factory = fn _candidate -> fn _prompt -> "defmodule Stub do end" end end
+
+      sequential = Bakeoff.run(candidates, factory, domain: :elixir, concurrency: 1)
+
+      parallel =
+        Bakeoff.run(candidates, factory, domain: :elixir, concurrency: length(candidates))
+
+      sequential_ids = MapSet.new(sequential.scores, & &1.candidate.id)
+      parallel_ids = MapSet.new(parallel.scores, & &1.candidate.id)
+
+      assert parallel_ids == sequential_ids
+    end
   end
 
   # ---------------------------------------------------------------------------
