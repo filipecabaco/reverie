@@ -37,26 +37,28 @@ defmodule Corpus.Indexer do
     indexable = Enum.filter(entries, &indexable?/1)
 
     with {:ok, db} <- Store.open(domain, data_dir) do
-      already_indexed =
-        if force, do: MapSet.new(), else: Store.indexed_references(db, domain)
+      try do
+        with {:ok, already_indexed} <-
+               if(force, do: {:ok, MapSet.new()}, else: Store.indexed_references(db, domain)) do
+          results =
+            Enum.map(indexable, fn entry ->
+              if MapSet.member?(already_indexed, entry.reference) do
+                {:skip, entry.reference}
+              else
+                index_entry(db, domain, entry)
+              end
+            end)
 
-      results =
-        Enum.map(indexable, fn entry ->
-          if MapSet.member?(already_indexed, entry.reference) do
-            {:skip, entry.reference}
-          else
-            index_entry(db, domain, entry)
-          end
-        end)
-
-      Store.close(db)
-
-      {:ok,
-       %{
-         indexed: Enum.count(results, &match?({:ok, _}, &1)),
-         skipped: Enum.count(results, &match?({:skip, _}, &1)),
-         errors: Enum.count(results, &match?({:error, _}, &1))
-       }}
+          {:ok,
+           %{
+             indexed: Enum.count(results, &match?({:ok, _}, &1)),
+             skipped: Enum.count(results, &match?({:skip, _}, &1)),
+             errors: Enum.count(results, &match?({:error, _}, &1))
+           }}
+        end
+      after
+        Store.close(db)
+      end
     end
   end
 
@@ -76,12 +78,20 @@ defmodule Corpus.Indexer do
         redistribution_allowed: entry.redistribution_allowed
       }
 
-      Enum.each(chunks, fn chunk ->
-        enriched_meta = Map.merge(chunk.metadata, rights)
-        Store.insert_chunk(db, %{chunk | metadata: enriched_meta, domain: domain})
-      end)
+      chunk_results =
+        Enum.map(chunks, fn chunk ->
+          enriched_meta = Map.merge(chunk.metadata, rights)
 
-      {:ok, entry.reference}
+          Store.insert_chunk(
+            db,
+            chunk |> Map.put(:metadata, enriched_meta) |> Map.put(:domain, domain)
+          )
+        end)
+
+      case Enum.find(chunk_results, &match?({:error, _}, &1)) do
+        nil -> {:ok, entry.reference}
+        {:error, reason} -> {:error, {entry.reference, reason}}
+      end
     else
       false -> {:skip, entry.reference}
       {:error, reason} -> {:error, {entry.reference, reason}}

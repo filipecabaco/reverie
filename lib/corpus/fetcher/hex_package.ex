@@ -40,7 +40,6 @@ defmodule Corpus.Fetcher.HexPackage do
   def search_json_path(domain, package, version \\ nil, data_dir \\ "data") do
     base = if version, do: "#{package}/#{version}", else: package
     reference = "#{base}/search.json"
-    filename = reference |> String.replace(~r/[^a-zA-Z0-9._-]/, "_") |> String.slice(0, 200)
-    Path.join([data_dir, to_string(domain), "raw", "official_hex_docs", filename])
+    Corpus.Fetcher.raw_path(domain, :official_hex_docs, reference, data_dir)
   end
 end

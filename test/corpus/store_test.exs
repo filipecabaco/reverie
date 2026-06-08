@@ -82,6 +82,48 @@ defmodule Corpus.StoreTest do
     end
   end
 
+  describe "indexed_references/2" do
+    test "returns {:ok, empty MapSet} when no chunks exist", %{conn: conn} do
+      assert {:ok, refs} = Store.indexed_references(conn, :elixir)
+      assert MapSet.size(refs) == 0
+    end
+
+    test "returns {:ok, MapSet} containing inserted references", %{conn: conn} do
+      Store.insert_chunk(conn, %{domain: :elixir, source_reference: "ref-a", text: "alpha"})
+      Store.insert_chunk(conn, %{domain: :elixir, source_reference: "ref-b", text: "beta"})
+
+      assert {:ok, refs} = Store.indexed_references(conn, :elixir)
+      assert MapSet.member?(refs, "ref-a")
+      assert MapSet.member?(refs, "ref-b")
+    end
+
+    test "deduplicates multiple chunks with the same source_reference", %{conn: conn} do
+      Store.insert_chunk(conn, %{domain: :elixir, source_reference: "ref-dup", text: "chunk one"})
+      Store.insert_chunk(conn, %{domain: :elixir, source_reference: "ref-dup", text: "chunk two"})
+
+      assert {:ok, refs} = Store.indexed_references(conn, :elixir)
+      assert MapSet.size(refs) == 1
+    end
+
+    test "filters by domain — excludes other domains' references", %{conn: conn} do
+      Store.insert_chunk(conn, %{
+        domain: :elixir,
+        source_reference: "elixir-ref",
+        text: "elixir stuff"
+      })
+
+      Store.insert_chunk(conn, %{
+        domain: :postgres,
+        source_reference: "pg-ref",
+        text: "postgres stuff"
+      })
+
+      assert {:ok, refs} = Store.indexed_references(conn, :elixir)
+      assert MapSet.member?(refs, "elixir-ref")
+      refute MapSet.member?(refs, "pg-ref")
+    end
+  end
+
   describe "save_brief/2 and get_brief/2" do
     test "round-trips a brief", %{conn: conn} do
       brief = sample_brief()

@@ -11,12 +11,13 @@ defmodule Corpus.Fetcher.Releases do
   """
 
   alias Corpus.{Manifest, ManifestEntry, SourcePolicy}
+  alias Corpus.Fetcher.GitHub
 
   @api_base "https://api.github.com"
 
   @type spec :: %{
-          owner: String.t(),
-          repo: String.t(),
+          required(:owner) => String.t(),
+          required(:repo) => String.t(),
           optional(:max_releases) => pos_integer()
         }
 
@@ -28,12 +29,14 @@ defmodule Corpus.Fetcher.Releases do
   Options:
     - `:data_dir`      — root data directory (default `"data"`)
     - `:github_token`  — bearer token for the GitHub API
+    - `:client`        — `fn url, headers -> {:ok, body} | {:error, reason}` (for testing)
   """
   @spec fetch_all(atom(), [spec()], keyword()) ::
           {:ok, [{:ok, ManifestEntry.t()} | {:error, term()}]}
   def fetch_all(domain, specs, opts \\ []) do
     data_dir = Keyword.get(opts, :data_dir, "data")
     token = Keyword.get(opts, :github_token)
+    client = Keyword.get(opts, :client, &default_client/2)
 
     manifest_dir = Path.join([data_dir, to_string(domain), "manifests"])
     existing = Manifest.existing_references(manifest_dir)
@@ -42,11 +45,12 @@ defmodule Corpus.Fetcher.Releases do
       Enum.flat_map(specs, fn spec ->
         max = Map.get(spec, :max_releases, 20)
 
-        case fetch_releases(spec.owner, spec.repo, max, token) do
+        case fetch_releases(spec.owner, spec.repo, max, token, client) do
           {:ok, releases} ->
             releases
             |> Enum.reject(fn rel ->
-              MapSet.member?(existing, release_reference(spec.owner, spec.repo, rel["tag_name"]))
+              tag = rel["tag_name"] || "unknown"
+              MapSet.member?(existing, release_reference(spec.owner, spec.repo, tag))
             end)
             |> Enum.map(&write_release(domain, spec.owner, spec.repo, &1, data_dir, manifest_dir))
 
@@ -62,21 +66,26 @@ defmodule Corpus.Fetcher.Releases do
   # Private
   # ---------------------------------------------------------------------------
 
-  defp fetch_releases(owner, repo, max, token) do
+  defp fetch_releases(owner, repo, max, token, client) do
     url = "#{@api_base}/repos/#{owner}/#{repo}/releases?per_page=#{max}"
 
-    case Req.get(url, headers: github_headers(token)) do
-      {:ok, %{status: 200, body: releases}} when is_list(releases) ->
+    case client.(url, GitHub.api_headers(token)) do
+      {:ok, releases} when is_list(releases) ->
         {:ok, releases}
 
-      {:ok, %{status: 200, body: body}} when is_binary(body) ->
+      {:ok, body} when is_binary(body) ->
         Jason.decode(body)
-
-      {:ok, %{status: status}} ->
-        {:error, {:http_status, status}}
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp default_client(url, headers) do
+    case Req.get(url, headers: headers) do
+      {:ok, %{status: 200, body: body}} -> {:ok, body}
+      {:ok, %{status: status}} -> {:error, {:http_status, status}}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -110,18 +119,20 @@ defmodule Corpus.Fetcher.Releases do
     Manifest.append(manifest_dir, entry)
     {:ok, entry}
   rescue
-    e -> {:error, Exception.message(e)}
+    e -> {:error, {:releases_fetch, "#{owner}/#{repo}", Exception.message(e)}}
   end
 
   defp release_reference(owner, repo, tag), do: "github:#{owner}/#{repo}/releases/#{tag}"
 
   defp release_path(domain, owner, repo, tag, data_dir) do
     safe_tag = String.replace(tag, ~r/[^a-zA-Z0-9._-]/, "_")
-    Path.join([data_dir, to_string(domain), "raw", "changelog", "#{owner}_#{repo}_#{safe_tag}.md"])
+
+    Path.join([
+      data_dir,
+      to_string(domain),
+      "raw",
+      "changelog",
+      "#{owner}_#{repo}_#{safe_tag}.md"
+    ])
   end
-
-  defp github_headers(nil), do: [{"accept", "application/vnd.github+json"}]
-
-  defp github_headers(token),
-    do: [{"accept", "application/vnd.github+json"}, {"authorization", "Bearer #{token}"}]
 end

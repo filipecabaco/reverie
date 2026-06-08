@@ -96,7 +96,7 @@ defmodule Corpus.Chunker do
   # ---------------------------------------------------------------------------
 
   defp split_markdown(content) do
-    Regex.split(~r/(?=^#{2,6} )/m, content)
+    Regex.split(~R/(?=^#{2,6} )/m, content)
     |> Enum.flat_map(fn section ->
       Regex.split(~r/```[^\n]*\n[\s\S]*?```/m, section, include_captures: true)
       |> Enum.flat_map(fn part ->
@@ -147,7 +147,7 @@ defmodule Corpus.Chunker do
 
   defp parse_hex_search_json(content) do
     with {:ok, data} <- Jason.decode(content) do
-      items = data["items"] || (is_list(data) && data) || []
+      items = if is_list(data), do: data, else: data["items"] || []
 
       items
       |> Enum.filter(&is_map/1)
@@ -173,10 +173,14 @@ defmodule Corpus.Chunker do
     parts
     |> Enum.reduce([], fn part, acc ->
       case acc do
-        [prev | rest] when String.length(prev) + String.length(part) + 2 <= max ->
-          [prev <> "\n\n" <> part | rest]
+        [prev | rest] ->
+          if String.length(prev) + String.length(part) + 2 <= max do
+            [prev <> "\n\n" <> part | rest]
+          else
+            [part | acc]
+          end
 
-        _ ->
+        [] ->
           [part | acc]
       end
     end)

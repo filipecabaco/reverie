@@ -102,7 +102,7 @@ defmodule Mix.Tasks.Reverie.Corpus.Build do
 
     fetch_opts = [data_dir: data_dir, concurrency: concurrency]
     github_opts = Keyword.put(fetch_opts, :github_token, token)
-    api_headers = github_api_headers(token)
+    api_headers = GitHub.api_headers(token)
 
     hex_packages = Map.get(sources, :hex_packages, [])
     repos = Map.get(sources, :repos, [])
@@ -169,6 +169,15 @@ defmodule Mix.Tasks.Reverie.Corpus.Build do
 
       case Req.get(tree_url, headers: api_headers) do
         {:ok, %{status: 200, body: body}} ->
+          body_map = if is_map(body), do: body, else: Jason.decode!(body)
+
+          if body_map["truncated"] do
+            Mix.shell().error(
+              "  #{owner}/#{repo}: tree response truncated — large repo, some files will be missing. " <>
+                "Consider using a GitHub token and fetching subtrees manually."
+            )
+          end
+
           body_bin = if is_binary(body), do: body, else: Jason.encode!(body)
           targets = GitHub.extract_targets(body_bin, owner, repo, branch: branch)
           wrapped = Enum.map(targets, &{:permissive_repo, &1})
@@ -227,12 +236,4 @@ defmodule Mix.Tasks.Reverie.Corpus.Build do
     end
   end
 
-  # ---------------------------------------------------------------------------
-  # Helpers
-  # ---------------------------------------------------------------------------
-
-  defp github_api_headers(nil), do: [{"accept", "application/vnd.github+json"}]
-
-  defp github_api_headers(token),
-    do: [{"accept", "application/vnd.github+json"}, {"authorization", "Bearer #{token}"}]
 end

@@ -63,6 +63,13 @@ defmodule Corpus.Fetcher.GitHub do
     file_target(owner, repo, "CHANGELOG.md", branch)
   end
 
+  @doc "Returns GitHub API request headers, optionally including a bearer token."
+  @spec api_headers(String.t() | nil) :: [{String.t(), String.t()}]
+  def api_headers(nil), do: [{"accept", "application/vnd.github+json"}]
+
+  def api_headers(token),
+    do: [{"accept", "application/vnd.github+json"}, {"authorization", "Bearer #{token}"}]
+
   defp file_matches?(%{"type" => "blob", "path" => path, "size" => size}, extensions, max_bytes) do
     ext = Path.extname(path)
     ext in extensions and size <= max_bytes

@@ -31,12 +31,22 @@ defmodule Domains.Domain do
     - `:releases`     — list of `%{owner: String.t(), repo: String.t(), max_releases: pos_integer()}`
   """
   @callback sources() :: %{
-              optional(:hex_packages) => [%{package: String.t(), optional(:version) => String.t()}],
+              optional(:hex_packages) => [
+                %{required(:package) => String.t(), optional(:version) => String.t()}
+              ],
               optional(:repos) => [
-                %{owner: String.t(), repo: String.t(), optional(:branch) => String.t()}
+                %{
+                  required(:owner) => String.t(),
+                  required(:repo) => String.t(),
+                  optional(:branch) => String.t()
+                }
               ],
               optional(:releases) => [
-                %{owner: String.t(), repo: String.t(), optional(:max_releases) => pos_integer()}
+                %{
+                  required(:owner) => String.t(),
+                  required(:repo) => String.t(),
+                  optional(:max_releases) => pos_integer()
+                }
               ]
             }
 
