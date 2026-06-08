@@ -25,14 +25,14 @@ defmodule Mix.Tasks.Reverie.Corpus.Build do
 
   ## Usage
 
-      mix reverie.corpus.build --domain elixir
-      mix reverie.corpus.build --domain elixir --phase fetch --github-token ghp_xxx
-      mix reverie.corpus.build --domain elixir --phase index --force
-      mix reverie.corpus.build --domain postgres --concurrency 8
+      mix reverie.corpus.build --domain <domain>
+      mix reverie.corpus.build --domain <domain> --phase fetch --github-token ghp_xxx
+      mix reverie.corpus.build --domain <domain> --phase index --force
+      mix reverie.corpus.build --domain <domain> --concurrency 8
 
   ## Options
 
-      --domain        Domain key. Default: elixir
+      --domain        Domain key. Required.
       --phase         fetch, index, or both (default: both)
       --github-token  GitHub personal access token (recommended; raises rate limit
                       from 60 to 5 000 API requests/hour)
@@ -53,7 +53,7 @@ defmodule Mix.Tasks.Reverie.Corpus.Build do
     force: :boolean
   ]
 
-  @defaults [domain: "elixir", phase: "both", data_dir: "data", concurrency: 4, force: false]
+  @defaults [phase: "both", data_dir: "data", concurrency: 4, force: false]
 
   @impl true
   def run(argv) do
@@ -61,6 +61,8 @@ defmodule Mix.Tasks.Reverie.Corpus.Build do
 
     {opts, _, _} = OptionParser.parse(argv, strict: @switches)
     opts = Keyword.merge(@defaults, opts)
+
+    unless opts[:domain], do: Mix.raise("--domain is required. Run `mix reverie.domain` to see available domains.")
 
     domain_str = opts[:domain]
     phase = opts[:phase]

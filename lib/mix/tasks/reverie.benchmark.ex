@@ -9,25 +9,27 @@ defmodule Mix.Tasks.Reverie.Benchmark do
 
   ## Usage
 
-      mix reverie.benchmark --domain elixir --backend cli
-      mix reverie.benchmark --domain elixir --backend api
+      mix reverie.benchmark --domain <domain> --backend cli
+      mix reverie.benchmark --domain <domain> --backend api
 
   ## Options
 
-      --domain    Domain key. Default: elixir
+      --domain    Domain key. Required.
       --model     Claude model to use (api backend only). Default: claude-haiku-4-5
       --backend   api (default, requires credits) or cli (uses claude CLI session)
       --out       Write JSON report to file (optional)
   """
 
   @switches [domain: :string, model: :string, backend: :string, out: :string]
-  @defaults [domain: "elixir", model: "claude-haiku-4-5", backend: "api"]
+  @defaults [model: "claude-haiku-4-5", backend: "api"]
 
   def run(argv) do
     Mix.Task.run("app.start")
 
     {opts, _, _} = OptionParser.parse(argv, strict: @switches)
     opts = Keyword.merge(@defaults, opts)
+
+    unless opts[:domain], do: Mix.raise("--domain is required. Run `mix reverie.domain` to see available domains.")
 
     backend = opts[:backend]
     domain = Mix.Tasks.Reverie.Helpers.resolve_domain(opts[:domain])

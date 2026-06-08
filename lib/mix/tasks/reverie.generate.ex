@@ -8,11 +8,11 @@ defmodule Mix.Tasks.Reverie.Generate do
 
   ## Usage
 
-      mix reverie.generate --domain elixir --count 100
+      mix reverie.generate --domain <domain> --count 100
 
   ## Options
 
-      --domain       Domain key. Default: elixir
+      --domain       Domain key. Required.
       --count        Target number of candidates. Default: 100
       --concurrency  Parallel teacher calls. Default: 4
       --sandbox-slots Max concurrent sandbox containers. Default: 2
@@ -34,7 +34,6 @@ defmodule Mix.Tasks.Reverie.Generate do
   ]
 
   @defaults [
-    domain: "elixir",
     count: 100,
     concurrency: 4,
     sandbox_slots: 2,
@@ -48,6 +47,8 @@ defmodule Mix.Tasks.Reverie.Generate do
 
     {opts, _, _} = OptionParser.parse(argv, strict: @switches)
     opts = Keyword.merge(@defaults, opts)
+
+    unless opts[:domain], do: Mix.raise("--domain is required. Run `mix reverie.domain` to see available domains.")
 
     backend = opts[:backend]
     teacher = Mix.Tasks.Reverie.Helpers.resolve_backend(backend)

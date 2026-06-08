@@ -78,16 +78,16 @@ mix sandbox.build        # build the dataset-gen sandbox image
 ### 1. Check status
 
 ```bash
-mix reverie.status                  # all domains
-mix reverie.status --domain elixir  # single domain
+mix reverie.status                    # all domains
+mix reverie.status --domain <domain>  # single domain
 ```
 
 ### 2. Explore registered domains
 
 ```bash
-mix reverie.domain                        # list all
-mix reverie.domain --show elixir          # full config
-mix reverie.domain --fixtures postgres    # benchmark fixtures
+mix reverie.domain                          # list all domains
+mix reverie.domain --show <domain>          # full config for a domain
+mix reverie.domain --fixtures <domain>      # benchmark fixtures for a domain
 ```
 
 ### 3. Build the knowledge-base corpus
@@ -99,26 +99,21 @@ files via the tree API), and GitHub release notes. Everything is chunked and
 indexed into a per-domain SQLite store for retrieval.
 
 ```bash
-# Fetch + index in one step
-mix reverie.corpus.build --domain elixir
+# Fetch + index in one step (--domain is required for all corpus commands)
+mix reverie.corpus.build --domain <domain>
 
 # Recommended: provide a GitHub token to raise API rate limits (60 → 5 000/hr)
-mix reverie.corpus.build --domain elixir --github-token ghp_xxx
+mix reverie.corpus.build --domain <domain> --github-token ghp_xxx
 
 # Run phases independently
-mix reverie.corpus.build --domain elixir --phase fetch
-mix reverie.corpus.build --domain elixir --phase index
+mix reverie.corpus.build --domain <domain> --phase fetch
+mix reverie.corpus.build --domain <domain> --phase index
 
 # Re-index after a corpus format change
-mix reverie.corpus.build --domain elixir --phase index --force
+mix reverie.corpus.build --domain <domain> --phase index --force
 ```
 
-The Elixir domain fetches: `elixir`, `mix`, `ex_unit`, `ecto`, `phoenix`,
-`phoenix_live_view`, `plug`, `oban`, `req`, `broadway`, `jason`, and others
-from HexDocs; source files from eight core repos; and release notes for the
-four highest-traffic projects.
-
-To add sources for a domain, implement `sources/0` in the domain module:
+Each domain declares its own sources in `sources/0`. For example:
 
 ```elixir
 def sources do
@@ -134,10 +129,10 @@ end
 
 ```bash
 # Quick start — Claude answers directly (no local corpus required)
-mix reverie.investigate --domain elixir --loops 5 --backend cli
+mix reverie.investigate --domain <domain> --loops 5 --backend cli
 
 # Self-reflective RAG loop against the populated corpus
-mix reverie.investigate --domain elixir --loops 20 --backend api
+mix reverie.investigate --domain <domain> --loops 20 --backend api
 ```
 
 ### 5. Run the benchmark baseline
@@ -145,14 +140,14 @@ mix reverie.investigate --domain elixir --loops 20 --backend api
 Measure the base model before training to establish a comparison point.
 
 ```bash
-mix reverie.benchmark --domain elixir --backend cli
-mix reverie.benchmark --domain elixir --backend api --model claude-haiku-4-5 --out report.json
+mix reverie.benchmark --domain <domain> --backend cli
+mix reverie.benchmark --domain <domain> --backend api --model claude-haiku-4-5 --out report.json
 ```
 
 ### 6. Generate training candidates
 
 ```bash
-mix reverie.generate --domain elixir --count 500
+mix reverie.generate --domain <domain> --count 500
 ```
 
 Candidates go through: `task spec → brief → teacher generation → parse → static policy → sandbox compile/test → evidence verify → dedup → retain or discard`.
@@ -162,7 +157,7 @@ Candidates go through: `task spec → brief → teacher generation → parse →
 Deduplicates, splits (train / val / domain test / general regression / safety regression), and writes an immutable snapshot.
 
 ```bash
-mix reverie.freeze --domain elixir --version v0.1
+mix reverie.freeze --domain <domain> --version v0.1
 ```
 
 ### 8. Train the adapter
@@ -170,8 +165,8 @@ mix reverie.freeze --domain elixir --version v0.1
 Auto-selects the backend based on hardware (mlx on Apple Silicon, CUDA on GPU).
 
 ```bash
-mix reverie.train --domain elixir --dataset v0.1
-mix reverie.train --domain elixir --dataset v0.1 --backend mlx --iters 500
+mix reverie.train --domain <domain> --dataset v0.1
+mix reverie.train --domain <domain> --dataset v0.1 --backend mlx --iters 500
 ```
 
 ### 9. Evaluate
@@ -182,15 +177,15 @@ Four-way comparison prevents attributing retrieval gains to fine-tuning:
 base  /  base+retrieval  /  adapter  /  adapter+retrieval
 ```
 
-Objective metrics: parse rate, compile pass-rate, test pass-rate, warning-free rate. Adapter is promoted only when it improves domain metrics over both the base and retrieval-only baselines, with no unacceptable general regression.
+Metrics and promotion criteria are defined per domain. An adapter is promoted only when it improves domain metrics over both the base and retrieval-only baselines, with no unacceptable general regression.
 
 ### 10. Serve
 
 Starts an OpenAI-compatible HTTP server for the adapter.
 
 ```bash
-mix reverie.serve --domain elixir
-mix reverie.serve --domain elixir --dataset v0.1 --port 8080
+mix reverie.serve --domain <domain>
+mix reverie.serve --domain <domain> --dataset v0.1 --port 8080
 ```
 
 ---
