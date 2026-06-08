@@ -251,6 +251,19 @@ defmodule Corpus.Store do
     :ok = Sqlite3.execute(conn, "CREATE INDEX IF NOT EXISTS chunks_domain ON chunks(domain)")
   end
 
+  @doc "Returns a MapSet of source references already indexed for a domain."
+  @spec indexed_references(conn(), atom()) :: {:ok, MapSet.t(String.t())} | {:error, term()}
+  def indexed_references(conn, domain) do
+    sql = "SELECT DISTINCT source_reference FROM chunks WHERE domain = ?1"
+
+    with {:ok, stmt} <- Sqlite3.prepare(conn, sql),
+         :ok <- Sqlite3.bind(stmt, [to_string(domain)]),
+         {:ok, rows} <- Sqlite3.fetch_all(conn, stmt),
+         :ok <- Sqlite3.release(conn, stmt) do
+      {:ok, rows |> Enum.map(fn [ref] -> ref end) |> MapSet.new()}
+    end
+  end
+
   @doc "Canonical path for a domain's corpus database."
   @spec db_path(atom(), Path.t()) :: Path.t()
   def db_path(domain, data_dir \\ "data") do

@@ -10,11 +10,11 @@ defmodule Mix.Tasks.Reverie.Freeze do
 
   ## Usage
 
-      mix reverie.freeze --domain elixir --version v0.1
+      mix reverie.freeze --domain <domain> --version v0.1
 
   ## Options
 
-      --domain     Domain key. Default: elixir
+      --domain     Domain key. Required.
       --version    Dataset version label. Default: v0.1
       --source     Source JSONL file. Default: data/<domain>/generated/candidates.jsonl
       --out        Snapshot directory. Default: data/<domain>/datasets/<version>
@@ -30,13 +30,15 @@ defmodule Mix.Tasks.Reverie.Freeze do
     data_dir: :string,
     seed: :integer
   ]
-  @defaults [domain: "elixir", version: "v0.1", data_dir: "data", seed: 42]
+  @defaults [version: "v0.1", data_dir: "data", seed: 42]
 
   def run(argv) do
     Mix.Task.run("app.start")
 
     {opts, _, _} = OptionParser.parse(argv, strict: @switches)
     opts = Keyword.merge(@defaults, opts)
+
+    unless opts[:domain], do: Mix.raise("--domain is required. Run `mix reverie.domain` to see available domains.")
 
     domain_str = opts[:domain]
     domain = Mix.Tasks.Reverie.Helpers.resolve_domain(domain_str)

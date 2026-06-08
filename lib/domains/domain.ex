@@ -20,4 +20,35 @@ defmodule Domains.Domain do
 
   @doc "DatasetGen.Config struct for generation pipeline runs."
   @callback generation_config(keyword()) :: DatasetGen.Config.t()
+
+  @doc """
+  Corpus source specifications: which packages, repositories, and release
+  histories to fetch when building this domain's knowledge base.
+
+  Return a map with any combination of:
+    - `:hex_packages` — list of `%{package: String.t(), version: String.t() | nil}`
+    - `:repos`        — list of `%{owner: String.t(), repo: String.t(), branch: String.t()}`
+    - `:releases`     — list of `%{owner: String.t(), repo: String.t(), max_releases: pos_integer()}`
+  """
+  @callback sources() :: %{
+              optional(:hex_packages) => [
+                %{required(:package) => String.t(), optional(:version) => String.t()}
+              ],
+              optional(:repos) => [
+                %{
+                  required(:owner) => String.t(),
+                  required(:repo) => String.t(),
+                  optional(:branch) => String.t()
+                }
+              ],
+              optional(:releases) => [
+                %{
+                  required(:owner) => String.t(),
+                  required(:repo) => String.t(),
+                  optional(:max_releases) => pos_integer()
+                }
+              ]
+            }
+
+  @optional_callbacks [sources: 0]
 end

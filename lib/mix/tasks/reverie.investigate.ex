@@ -17,13 +17,13 @@ defmodule Mix.Tasks.Reverie.Investigate do
 
   ## Usage
 
-      mix reverie.investigate --domain supabase --loops 5
-      mix reverie.investigate --domain elixir --topic "GenServer timeouts"
-      mix reverie.investigate --domain supabase --loops 10 --backend cli
+      mix reverie.investigate --domain <domain> --loops 5
+      mix reverie.investigate --domain <domain> --topic "a specific topic"
+      mix reverie.investigate --domain <domain> --loops 10 --backend cli
 
   ## Options
 
-      --domain    Domain key (elixir, postgres, supabase, ...). Default: elixir
+      --domain    Domain key. Required. Run `mix reverie.domain` to list available domains.
       --topic     Fixed topic for every loop. Omit to let the teacher choose each time.
       --loops     Number of investigations to run. Default: 1
       --backend   cli (uses Claude CLI, no corpus needed) or api (uses local corpus)
@@ -37,13 +37,15 @@ defmodule Mix.Tasks.Reverie.Investigate do
     data_dir: :string,
     loops: :integer
   ]
-  @defaults [domain: "elixir", backend: "cli", data_dir: "data", loops: 1]
+  @defaults [backend: "cli", data_dir: "data", loops: 1]
 
   def run(argv) do
     Mix.Task.run("app.start")
 
     {opts, _, _} = OptionParser.parse(argv, strict: @switches)
     opts = Keyword.merge(@defaults, opts)
+
+    unless opts[:domain], do: Mix.raise("--domain is required. Run `mix reverie.domain` to see available domains.")
 
     domain = Mix.Tasks.Reverie.Helpers.resolve_domain(opts[:domain])
     backend = opts[:backend]

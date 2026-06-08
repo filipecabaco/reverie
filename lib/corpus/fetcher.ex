@@ -116,7 +116,7 @@ defmodule Corpus.Fetcher do
     {:ok, entry}
   end
 
-  defp raw_path(domain, source_kind, reference, data_dir) do
+  def raw_path(domain, source_kind, reference, data_dir) do
     filename = reference |> String.replace(~r"[^a-zA-Z0-9._-]", "_") |> String.slice(0, 200)
     Path.join([data_dir, to_string(domain), "raw", to_string(source_kind), filename])
   end
