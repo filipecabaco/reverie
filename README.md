@@ -90,17 +90,57 @@ mix reverie.domain --show elixir          # full config
 mix reverie.domain --fixtures postgres    # benchmark fixtures
 ```
 
-### 3. Research and build the evidence corpus
+### 3. Build the knowledge-base corpus
+
+Downloads official documentation, example repositories, and release notes for
+the domain. Each domain's `sources/0` declares exactly what to fetch: HexDocs
+packages (search index + every module page), GitHub repos (.ex, .exs, .md
+files via the tree API), and GitHub release notes. Everything is chunked and
+indexed into a per-domain SQLite store for retrieval.
+
+```bash
+# Fetch + index in one step
+mix reverie.corpus.build --domain elixir
+
+# Recommended: provide a GitHub token to raise API rate limits (60 → 5 000/hr)
+mix reverie.corpus.build --domain elixir --github-token ghp_xxx
+
+# Run phases independently
+mix reverie.corpus.build --domain elixir --phase fetch
+mix reverie.corpus.build --domain elixir --phase index
+
+# Re-index after a corpus format change
+mix reverie.corpus.build --domain elixir --phase index --force
+```
+
+The Elixir domain fetches: `elixir`, `mix`, `ex_unit`, `ecto`, `phoenix`,
+`phoenix_live_view`, `plug`, `oban`, `req`, `broadway`, `jason`, and others
+from HexDocs; source files from eight core repos; and release notes for the
+four highest-traffic projects.
+
+To add sources for a domain, implement `sources/0` in the domain module:
+
+```elixir
+def sources do
+  %{
+    hex_packages: [%{package: "my_lib"}],
+    repos: [%{owner: "acme", repo: "my_lib", branch: "main"}],
+    releases: [%{owner: "acme", repo: "my_lib", max_releases: 10}]
+  }
+end
+```
+
+### 4. Research and build briefs
 
 ```bash
 # Quick start — Claude answers directly (no local corpus required)
 mix reverie.investigate --domain elixir --loops 5 --backend cli
 
-# Self-reflective RAG loop against a populated local corpus
+# Self-reflective RAG loop against the populated corpus
 mix reverie.investigate --domain elixir --loops 20 --backend api
 ```
 
-### 4. Run the benchmark baseline
+### 5. Run the benchmark baseline
 
 Measure the base model before training to establish a comparison point.
 
@@ -109,7 +149,7 @@ mix reverie.benchmark --domain elixir --backend cli
 mix reverie.benchmark --domain elixir --backend api --model claude-haiku-4-5 --out report.json
 ```
 
-### 5. Generate training candidates
+### 6. Generate training candidates
 
 ```bash
 mix reverie.generate --domain elixir --count 500
@@ -117,7 +157,7 @@ mix reverie.generate --domain elixir --count 500
 
 Candidates go through: `task spec → brief → teacher generation → parse → static policy → sandbox compile/test → evidence verify → dedup → retain or discard`.
 
-### 6. Freeze a dataset
+### 7. Freeze a dataset
 
 Deduplicates, splits (train / val / domain test / general regression / safety regression), and writes an immutable snapshot.
 
@@ -125,7 +165,7 @@ Deduplicates, splits (train / val / domain test / general regression / safety re
 mix reverie.freeze --domain elixir --version v0.1
 ```
 
-### 7. Train the adapter
+### 8. Train the adapter
 
 Auto-selects the backend based on hardware (mlx on Apple Silicon, CUDA on GPU).
 
@@ -134,7 +174,7 @@ mix reverie.train --domain elixir --dataset v0.1
 mix reverie.train --domain elixir --dataset v0.1 --backend mlx --iters 500
 ```
 
-### 8. Evaluate
+### 9. Evaluate
 
 Four-way comparison prevents attributing retrieval gains to fine-tuning:
 
@@ -144,7 +184,7 @@ base  /  base+retrieval  /  adapter  /  adapter+retrieval
 
 Objective metrics: parse rate, compile pass-rate, test pass-rate, warning-free rate. Adapter is promoted only when it improves domain metrics over both the base and retrieval-only baselines, with no unacceptable general regression.
 
-### 9. Serve
+### 10. Serve
 
 Starts an OpenAI-compatible HTTP server for the adapter.
 

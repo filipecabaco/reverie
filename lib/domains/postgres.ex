@@ -35,6 +35,28 @@ defmodule Domains.Postgres do
   end
 
   @impl true
+  def sources do
+    %{
+      hex_packages: [
+        %{package: "postgrex"},
+        %{package: "ecto"},
+        %{package: "ecto_sql"},
+        %{package: "ecto_psql_extras"}
+      ],
+      repos: [
+        %{owner: "elixir-ecto", repo: "ecto_sql", branch: "master"},
+        %{owner: "elixir-ecto", repo: "postgrex", branch: "master"},
+        %{owner: "elixir-ecto", repo: "ecto", branch: "master"},
+        %{owner: "pawurb", repo: "ecto_psql_extras", branch: "main"}
+      ],
+      releases: [
+        %{owner: "elixir-ecto", repo: "ecto_sql", max_releases: 10},
+        %{owner: "elixir-ecto", repo: "postgrex", max_releases: 10}
+      ]
+    }
+  end
+
+  @impl true
   def generation_config(opts \\ []) do
     cfg = config()
 

@@ -32,6 +32,45 @@ defmodule Domains.Elixir do
   end
 
   @impl true
+  def sources do
+    %{
+      hex_packages: [
+        %{package: "elixir"},
+        %{package: "mix"},
+        %{package: "ex_unit"},
+        %{package: "iex"},
+        %{package: "ecto"},
+        %{package: "ecto_sql"},
+        %{package: "phoenix"},
+        %{package: "phoenix_live_view"},
+        %{package: "plug"},
+        %{package: "oban"},
+        %{package: "req"},
+        %{package: "broadway"},
+        %{package: "nimble_parsec"},
+        %{package: "telemetry"},
+        %{package: "jason"}
+      ],
+      repos: [
+        %{owner: "elixir-lang", repo: "elixir", branch: "main"},
+        %{owner: "phoenixframework", repo: "phoenix", branch: "main"},
+        %{owner: "elixir-ecto", repo: "ecto", branch: "master"},
+        %{owner: "elixir-ecto", repo: "ecto_sql", branch: "master"},
+        %{owner: "elixir-plug", repo: "plug", branch: "main"},
+        %{owner: "beam-community", repo: "oban", branch: "main"},
+        %{owner: "dashbitco", repo: "broadway", branch: "master"},
+        %{owner: "wojtekmach", repo: "req", branch: "main"}
+      ],
+      releases: [
+        %{owner: "elixir-lang", repo: "elixir", max_releases: 15},
+        %{owner: "phoenixframework", repo: "phoenix", max_releases: 10},
+        %{owner: "elixir-ecto", repo: "ecto", max_releases: 10},
+        %{owner: "elixir-ecto", repo: "ecto_sql", max_releases: 10}
+      ]
+    }
+  end
+
+  @impl true
   def generation_config(opts \\ []) do
     cfg = config()
 
