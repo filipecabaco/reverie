@@ -196,6 +196,25 @@ defmodule Mix.Tasks.Reverie.Domain.Add do
       end
 
       @impl true
+      def sources do
+        %{
+          # Declare what to fetch when running `mix reverie.corpus.build --domain #{name}`.
+          # All keys are optional — include only what applies to this domain.
+          #
+          # hex_packages: [
+          #   %{package: "my_package"},
+          #   %{package: "other_package", version: "1.2.3"}
+          # ],
+          # repos: [
+          #   %{owner: "org", repo: "repo", branch: "main"}
+          # ],
+          # releases: [
+          #   %{owner: "org", repo: "repo", max_releases: 10}
+          # ]
+        }
+      end
+
+      @impl true
       def generation_config(opts \\\\ []) do
         cfg = config()
 

@@ -8,9 +8,9 @@ defmodule Mix.Tasks.Reverie.Domain do
 
   ## Usage
 
-      mix reverie.domain                      # list all domains
-      mix reverie.domain --show elixir        # show full config for a domain
-      mix reverie.domain --fixtures postgres  # list benchmark fixtures for a domain
+      mix reverie.domain                        # list all domains
+      mix reverie.domain --show <domain>        # show full config for a domain
+      mix reverie.domain --fixtures <domain>    # list benchmark fixtures for a domain
 
   ## Options
 

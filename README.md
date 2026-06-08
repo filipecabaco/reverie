@@ -2,7 +2,7 @@
 
 Elixir-orchestrated LoRA/QLoRA adapter training pipeline for narrow technical domains.
 
-Fine-tunes small, focused adapters that improve a base language model on a specific domain — Elixir, Postgres, Supabase, TypeScript, Testing, Security, and Project management — while combining with retrieval-augmented generation at inference time.
+Fine-tunes small, focused adapters that improve a base language model on a specific domain — any domain you define — while combining with retrieval-augmented generation at inference time. Domains are fully configurable: create one with `mix reverie.domain.add --name <name>` and the pipeline handles the rest.
 
 ---
 
@@ -42,20 +42,6 @@ Practical order: **prompting → retrieval → adapter training → optional dis
 **Elixir owns:** fetching, manifests, domain configs, topic queues, brief and retrieval storage (SQLite), generation orchestration, sandbox scheduling, JSONL output, dataset versioning, evaluation orchestration, telemetry, job scheduling.
 
 **Python is restricted to:** loading the training base model, running QLoRA/LoRA, exporting adapter artifacts, and evaluation inference.
-
----
-
-## Supported domains
-
-| Domain            | Adapter emphasis  | Retrieval emphasis | Target pairs   |
-|-------------------|-------------------|--------------------|----------------|
-| Elixir            | High              | Medium             | 3,000–8,000    |
-| Postgres          | Medium/high       | Medium             | 2,000–5,000    |
-| TypeScript        | Medium            | Medium             | 1,000–3,000    |
-| Testing           | High              | Low/medium         | 3,000–6,000    |
-| Supabase          | Medium            | Very high          | 2,000–5,000    |
-| Security          | Conservative      | Very high          | 2,000–5,000    |
-| Project management| Style/reasoning   | Medium             | 2,000–5,000    |
 
 ---
 
@@ -190,13 +176,31 @@ mix reverie.serve --domain <domain> --dataset v0.1 --port 8080
 
 ---
 
-## Adding a new domain
+## Defining a domain
+
+Domains are the unit of configuration. There are no built-in domains — every domain is created through the same scaffold:
 
 ```bash
-mix reverie.domain.add --name graphql
+mix reverie.domain.add --name <name>
+mix reverie.domain.add --name <name> --target-pairs 5000 --expiry-days 120
 ```
 
-Scaffolds `lib/domains/graphql.ex` and the benchmark fixtures module, then patches both registries automatically.
+This creates two files and registers the domain in `priv/domains.exs`:
+
+| File | Purpose |
+|---|---|
+| `lib/domains/<name>.ex` | Config, generation settings, and corpus sources |
+| `lib/evaluate/benchmark/fixtures/<name>.ex` | Benchmark prompts for evaluating adapters |
+
+After scaffolding, edit the generated files to:
+1. Set `task_weights` to reflect how work in this domain is distributed
+2. Add `sources` entries (packages, repos, release histories) for corpus building
+3. Write real benchmark fixtures covering the domain's key categories
+
+```bash
+mix reverie.domain --show <name>      # verify the config was read correctly
+mix reverie.domain --fixtures <name>  # list benchmark fixtures
+```
 
 ---
 
